@@ -5,6 +5,7 @@ set -e
 SRC="$HOME/devops-lab/firewall/nftables.conf"
 DST="/etc/nftables.conf"
 BACKUP="/etc/nftables.conf.backup"
+ROLLBACK_SCRIPT="$HOME/devops-lab/scripts/rollback-firewall.sh"
 
 echo "1. Validate configuration"
 sudo nft -c -f "$SRC"
@@ -12,13 +13,22 @@ sudo nft -c -f "$SRC"
 echo "2. Backup current configuration"
 sudo cp "$DST" "$BACKUP"
 
-echo "3. Deploy new configuration"
+echo "3. Schedule automatic rollback in 2 minutes"
+sudo systemd-run \
+  --unit=firewall-rollback \
+  --on-active=2m \
+  "$ROLLBACK_SCRIPT"
+
+echo "4. Deploy new configuration"
 sudo cp "$SRC" "$DST"
 
-echo "4. Apply nftables configuration"
+echo "5. Apply nftables configuration"
 sudo nft -f "$DST"
 
-echo "5. Show active ruleset"
+echo "6. Show active ruleset"
 sudo nft list ruleset
 
-echo "Firewall deployment completed successfully"
+echo
+echo "Firewall deployment completed."
+echo "If everything works, cancel rollback with:"
+echo "sudo systemctl stop firewall-rollback.timer"

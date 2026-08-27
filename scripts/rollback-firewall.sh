@@ -2,10 +2,15 @@
 
 set -e
 
-BACKUP="/etc/nftables.conf.backup"
+BACKUP="$1"
 DST="/etc/nftables.conf"
 
-echo "Restoring firewall backup"
+if [ -z "$BACKUP" ]; then
+    echo "Usage: $0 BACKUP_FILE"
+    exit 1
+fi
+
+echo "Restoring firewall backup: $BACKUP"
 
 cp "$BACKUP" "$DST"
 nft -f "$DST"

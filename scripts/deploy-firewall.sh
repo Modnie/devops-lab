@@ -2,17 +2,33 @@
 
 set -e
 
-SRC="$HOME/devops-lab/firewall/nftables.conf"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+DEFAULT_CONFIG="$REPO_DIR/firewall/nftables.conf"
+LOCAL_CONFIG="$REPO_DIR/firewall/nftables.local.conf"
+
+if [ ! -f "$LOCAL_CONFIG" ]; then
+    echo "ERROR: Local firewall configuration not found:"
+    echo "$LOCAL_CONFIG"
+    echo
+    echo "Create it from the default configuration:"
+    echo "cp \"$DEFAULT_CONFIG\" \"$LOCAL_CONFIG\""
+    exit 1
+fi
+
+SRC="$LOCAL_CONFIG"
 DST="/etc/nftables.conf"
 BACKUP="/etc/nftables.conf.$(date '+%Y%m%d-%H%M%S').backup"
-ROLLBACK_SCRIPT="$HOME/devops-lab/scripts/rollback-firewall.sh"
+ROLLBACK_SCRIPT="$REPO_DIR/scripts/rollback-firewall.sh"
+
+echo "Using local firewall configuration: $SRC"
 
 echo "1. Validate configuration"
 sudo nft -c -f "$SRC"
 
 echo "2. Backup current configuration"
 sudo cp "$DST" "$BACKUP"
-
 echo "Backup created: $BACKUP"
 
 echo "3. Schedule automatic rollback in 2 minutes"

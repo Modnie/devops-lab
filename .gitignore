@@ -1,0 +1,5 @@
+# Local environment-specific configuration
+firewall/nftables.local.conf
+
+# macOS
+.DS_Store

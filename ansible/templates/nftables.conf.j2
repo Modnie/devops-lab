@@ -1,0 +1,32 @@
+#!/usr/sbin/nft -f
+
+flush ruleset
+
+table inet devops_filter {
+
+    set trusted_sources {
+        type ipv4_addr
+        flags interval
+        elements = { {{ trusted_networks | join(', ') }} }
+    }
+
+    chain input {
+        type filter hook input priority filter; policy drop;
+
+        iifname "lo" counter accept
+        ct state established,related counter accept
+
+        ip protocol icmp counter accept
+
+        ip saddr @trusted_sources tcp dport 22 counter accept
+        ip saddr @trusted_sources tcp dport 80 counter accept
+    }
+
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+    }
+
+    chain output {
+        type filter hook output priority filter; policy accept;
+    }
+}

@@ -1,0 +1,32 @@
+---
+- name: Установить PostgreSQL и зависимости для Ansible
+  ansible.builtin.apt:
+    name:
+      - postgresql
+      - python3-psycopg2
+      - acl
+    state: present
+    update_cache: yes
+
+- name: Включить и запустить сервис PostgreSQL
+  ansible.builtin.systemd_service:
+    name: postgresql
+    state: started
+    enabled: yes
+
+- name: Создать пользователя PostgreSQL для Zabbix
+  community.postgresql.postgresql_user:
+    name: zabbix
+    password: "{{ vault_zabbix_db_password }}"
+    state: present
+  become: true
+  become_user: postgres
+  no_log: true
+
+- name: Создать базу данных Zabbix
+  community.postgresql.postgresql_db:
+    name: zabbix
+    owner: zabbix
+    state: present
+  become: true
+  become_user: postgres

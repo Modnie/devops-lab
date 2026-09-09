@@ -3,3 +3,8 @@ firewall/nftables.local.conf
 
 # macOS
 .DS_Store
+
+# Ansible local/private configuration
+ansible/inventory/*.local.ini
+ansible/inventory/group_vars/**/vault.yml
+ansible/inventory/group_vars/all/local.yml

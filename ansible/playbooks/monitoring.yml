@@ -1,0 +1,8 @@
+---
+- name: Configure monitoring server
+  hosts: monitoring_servers
+  become: true
+
+  roles:
+    - postgresql
+    - zabbix

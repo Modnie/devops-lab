@@ -1,225 +1,204 @@
-# Linux Firewall as Code
+# DevOps Lab
 
-Infrastructure-as-Code project for managing a Linux firewall based on nftables.
+Infrastructure automation project focused on building, securing, and monitoring Linux infrastructure using Infrastructure as Code practices.
 
-The project provides a reproducible, version-controlled and safe approach to firewall configuration, deployment and rollback.
+The repository contains reusable Ansible automation, firewall configuration, and safe deployment tooling. Environment-specific configuration and secrets are kept outside the public repository.
 
-## Goals
+## Current Infrastructure Automation
 
-- Manage nftables configuration as code
-- Store firewall configuration in Git
-- Validate configuration before deployment
-- Provide repeatable and predictable deployment
-- Protect remote systems from configuration errors
-- Automatically rollback unsuccessful firewall changes
-- Keep environment-specific settings separated from firewall logic
-- Prepare the configuration for automated deployment with Ansible
+### Ansible
 
-## Architecture
+Ansible is used as the primary configuration management tool.
 
-```text
-Git repository
-      │
-      ▼
-nftables configuration
-      │
-      ▼
-configuration validation
-      │
-      ▼
-backup current configuration
-      │
-      ▼
-schedule automatic rollback
-      │
-      ▼
-deploy configuration
-      │
-      ▼
-Linux nftables
-      │
-      ▼
-verify connectivity
-      │
-      ├── success → cancel rollback
-      │
-      └── failure → automatic rollback
-```
+Current automation includes:
+
+- Ubuntu server baseline configuration
+- Package installation and system updates
+- Timezone configuration
+- SSH hardening
+- nftables firewall deployment
+- PostgreSQL installation and configuration
+- Zabbix Server deployment
+- Zabbix Agent 2 deployment
+- Service management through systemd
+- Ansible Vault integration for secrets
+- Environment-specific configuration through inventory variables
+
+### Monitoring
+
+The monitoring stack is based on Zabbix 7.0 LTS.
+
+Current components:
+
+- Zabbix Server
+- Zabbix Web Frontend
+- PostgreSQL backend
+- Zabbix Agent 2
+- Automated agent deployment using Ansible
+
+Linux hosts can be added to the monitoring infrastructure using the reusable `zabbix_agent` role.
+
+### Firewall as Code
+
+Host firewall configuration is managed using nftables.
+
+The repository contains:
+
+- version-controlled nftables configuration
+- configuration validation before deployment
+- management network access control
+- service-specific firewall rules
+- safe deployment and rollback scripts
+
+Private environment-specific firewall configuration is excluded from Git.
 
 ## Repository Structure
 
 ```text
 devops-lab/
+├── ansible/
+│   ├── ansible.cfg
+│   ├── inventory/
+│   ├── playbooks/
+│   │   ├── baseline.yml
+│   │   ├── monitoring.yml
+│   │   └── zabbix_agents.yml
+│   ├── roles/
+│   │   ├── postgresql/
+│   │   ├── zabbix/
+│   │   └── zabbix_agent/
+│   └── templates/
+│       ├── 10-hardening.conf.j2
+│       └── nftables.conf.j2
+│
 ├── firewall/
 │   └── nftables.conf
+│
 ├── scripts/
 │   ├── deploy-firewall.sh
 │   └── rollback-firewall.sh
+│
+├── .gitignore
 └── README.md
 ```
 
-## Firewall Configuration
+## Ansible Playbooks
 
-`firewall/nftables.conf` is the source of truth for the firewall configuration.
+### `baseline.yml`
 
-The current implementation includes:
+Applies the base configuration for Linux servers.
 
-- Default DROP policy for inbound traffic
-- Loopback traffic handling
-- Stateful connection tracking
-- Trusted network definition
-- nftables sets for allowed services
-- Controlled access to management and application ports
+Current baseline automation includes:
 
-Example configuration:
+- package updates
+- common administration tools
+- timezone configuration
+- QEMU Guest Agent
+- SSH hardening
+- nftables firewall configuration
+- required systemd service management
 
-```nft
-define LAN_NET = 192.168.69.0/24
+### `monitoring.yml`
 
-table inet devops_filter {
+Deploys the monitoring server stack using reusable Ansible roles.
 
-    set lan_tcp_ports {
-        type inet_service
-        elements = { 22, 8080 }
-    }
+Current roles:
 
-    chain input {
-        type filter hook input priority filter;
-        policy drop;
+- `postgresql`
+- `zabbix`
 
-        iifname "lo" counter accept
-        ct state established,related counter accept
+The playbook installs and configures the PostgreSQL database and Zabbix monitoring stack.
 
-        ip saddr $LAN_NET tcp dport @lan_tcp_ports counter accept
-    }
-}
-```
+### `zabbix_agents.yml`
 
-## Configuration Validation
+Deploys and configures Zabbix Agent 2 on managed Linux hosts using the reusable `zabbix_agent` role.
 
-Before deployment, the nftables configuration is checked for syntax errors:
+Agent configuration includes:
 
-```bash
-sudo nft -c -f firewall/nftables.conf
-```
+- Zabbix server address
+- active server address
+- host identity based on Ansible inventory
+- automatic service enablement and startup
 
-Invalid configurations are rejected before the active firewall is modified.
+## Ansible Roles
 
-## Deployment
+### `postgresql`
 
-Deploy the current firewall configuration:
+Installs PostgreSQL and required Python dependencies, starts the database service, and creates the database and database user required by Zabbix.
 
-```bash
-./scripts/deploy-firewall.sh
-```
+Database credentials are supplied through Ansible Vault and are not stored in plaintext in the public repository.
 
-The deployment process:
+### `zabbix`
 
-1. Validates the new nftables configuration
-2. Creates a backup of the currently deployed configuration
-3. Schedules an automatic rollback
-4. Copies the new configuration to `/etc/nftables.conf`
-5. Applies the new nftables ruleset
-6. Displays the active firewall configuration
-7. Allows the administrator to verify connectivity and services
+Deploys the Zabbix monitoring server stack.
 
-## Rollback Protection
+The role currently handles:
 
-Before the new firewall configuration is applied, the deployment script creates a transient systemd timer.
+- official Zabbix repository configuration
+- Zabbix Server installation
+- Zabbix Web Frontend installation
+- PostgreSQL support
+- initial database schema import
+- Zabbix database configuration
+- nginx frontend configuration
+- Zabbix and web service management
 
-The timer automatically restores the previous firewall configuration if the administrator loses access to the server or does not confirm the deployment.
+Database schema initialization is performed conditionally to keep repeated Ansible runs idempotent.
 
-The current rollback timeout is:
+### `zabbix_agent`
 
-```text
-2 minutes
-```
+Installs and configures Zabbix Agent 2 on managed Linux systems.
 
-After verifying SSH connectivity and required services, cancel the scheduled rollback:
+The role is reusable across multiple hosts and derives host-specific configuration from the Ansible inventory.
 
-```bash
-sudo systemctl stop firewall-rollback.timer
-```
+## Configuration and Secrets
 
-If the rollback timer is not cancelled, the previous firewall configuration is restored automatically.
+The repository separates reusable infrastructure code from environment-specific configuration.
 
-## Manual Rollback
+Public configuration contains reusable defaults and examples, while real infrastructure values are stored in local files excluded from Git.
 
-The previous configuration can also be restored manually:
+Sensitive information is managed separately using Ansible Vault.
 
-```bash
-sudo ./scripts/rollback-firewall.sh
-```
+Examples of information excluded from the public repository include:
 
-The rollback script:
+- production IP addresses and networks
+- local Ansible inventory
+- database credentials
+- environment-specific variables
+- host-specific private configuration
 
-1. Restores the previous `/etc/nftables.conf`
-2. Applies the restored nftables ruleset
+This allows the repository to remain reusable without exposing details of the real infrastructure.
 
-## Git Workflow
+## Firewall Deployment
 
-Firewall changes are managed through Git.
+nftables configuration is maintained as code and can be validated before being applied to a host.
 
-Typical workflow:
+Deployment tooling is designed around a safe workflow:
 
-```text
-edit firewall configuration
-        │
-        ▼
-review changes
-        │
-        ▼
-validate nftables configuration
-        │
-        ▼
-git add
-        │
-        ▼
-git commit
-        │
-        ▼
-git push
-        │
-        ▼
-deploy
-        │
-        ▼
-verify connectivity
-        │
-        ├── success → cancel rollback
-        │
-        └── failure → automatic rollback
-```
+1. validate the new configuration
+2. prepare automatic rollback
+3. apply the new ruleset
+4. verify management connectivity
+5. cancel rollback after successful validation
+6. persist the working configuration
 
-This provides version history and makes it possible to track, review and reproduce firewall configuration changes.
+This reduces the risk of losing remote access while changing firewall rules.
 
-## Security Model
+## Design Principles
 
-The project follows a default-deny approach.
+The project follows several infrastructure engineering principles:
 
-Inbound traffic is dropped unless explicitly allowed.
+- Infrastructure as Code
+- reproducible configuration
+- idempotent automation
+- reusable Ansible roles
+- separation of code and environment-specific configuration
+- secrets kept outside the public Git repository
+- least-privilege network access
+- configuration validation before deployment
+- safe rollback for network configuration changes
+- version-controlled infrastructure changes
 
-Current trusted services are defined through nftables sets, allowing firewall policy to remain readable and easy to modify.
+## Status
 
-Firewall configuration is validated before deployment, and automatic rollback protection reduces the risk of losing remote access because of an incorrect but syntactically valid configuration.
-
-## Planned Improvements
-
-The project is intended to evolve into a reusable Linux firewall deployment framework.
-
-Planned improvements include:
-
-- Environment-specific configuration
-- Separation of environment variables from firewall logic
-- Separate INPUT, FORWARD and NAT policies
-- Multiple network zones
-- VLAN support
-- DMZ support
-- Routing and forwarding
-- NAT
-- Firewall logging
-- Monitoring
-- Automated configuration testing
-- Ansible deployment
-- CI-based nftables validation
-- Multiple-host deployment
+The project is actively evolving as additional infrastructure components are automated and integrated into the configuration management and monitoring stack.

@@ -1,0 +1,44 @@
+---
+- name: Configure Proxmox VE monitoring in Zabbix
+  hosts: monitoring_servers
+  gather_facts: false
+
+  vars:
+    ansible_network_os: community.zabbix.zabbix
+    ansible_connection: httpapi
+    ansible_httpapi_port: 80
+    ansible_httpapi_use_ssl: false
+    ansible_zabbix_url_path: ""
+    ansible_zabbix_auth_key: "{{ vault_zabbix_api_token }}"
+
+  tasks:
+    - name: Ensure Proxmox host group exists
+      community.zabbix.zabbix_group:
+        state: present
+        host_groups:
+          - "{{ zabbix_pve_host_group }}"
+
+    - name: Configure Proxmox VE host in Zabbix
+      community.zabbix.zabbix_host:
+        host_name: "{{ zabbix_pve_host_name }}"
+        host_groups:
+          - "{{ zabbix_pve_host_group }}"
+        link_templates:
+          - "{{ zabbix_pve_template }}"
+        status: enabled
+        state: present
+        interfaces: []
+        macros:
+          - macro: "{$PVE.URL.HOST}"
+            value: "{{ zabbix_pve_api_host }}"
+
+          - macro: "{$PVE.URL.PORT}"
+            value: "{{ zabbix_pve_api_port | string }}"
+
+          - macro: "{$PVE.TOKEN.ID}"
+            value: "{{ zabbix_pve_token_id }}"
+
+          - macro: "{$PVE.TOKEN.SECRET}"
+            value: "{{ vault_zabbix_pve_token_secret }}"
+            type: secret
+      no_log: true

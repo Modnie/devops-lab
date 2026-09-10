@@ -1,2 +1,8 @@
 ---
 firewall_allow_http: true
+
+# Proxmox VE monitoring
+zabbix_pve_host_name: "pve-dmz"
+zabbix_pve_host_group: "Virtualization"
+zabbix_pve_template: "Proxmox VE by HTTP"
+zabbix_pve_api_port: 8006

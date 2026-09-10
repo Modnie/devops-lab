@@ -103,3 +103,10 @@
     name: php8.3-fpm
     state: started
     enabled: true
+
+- name: Configure Zabbix frontend database password
+  ansible.builtin.lineinfile:
+    path: /etc/zabbix/web/zabbix.conf.php
+    regexp: '^\$DB\[''PASSWORD''\]'
+    line: "$DB['PASSWORD'] = '{{ vault_zabbix_db_password }}';"
+  no_log: true

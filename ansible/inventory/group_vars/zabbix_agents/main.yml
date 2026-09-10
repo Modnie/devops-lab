@@ -1,0 +1,2 @@
+---
+firewall_allow_zabbix_agent: true

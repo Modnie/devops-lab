@@ -4,3 +4,6 @@ zabbix_server_ip: 10.10.20.10
 trusted_networks:
   - 10.10.10.0/24
   - 10.10.20.0/24
+
+firewall_allow_http: false
+firewall_allow_zabbix_agent: false

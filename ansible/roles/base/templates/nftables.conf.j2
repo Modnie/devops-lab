@@ -10,7 +10,7 @@ table inet devops_filter {
         elements = { {{ trusted_networks | join(', ') }} }
     }
 
-    chain input {
+chain input {
         type filter hook input priority filter; policy drop;
 
         iifname "lo" counter accept
@@ -19,7 +19,14 @@ table inet devops_filter {
         ip protocol icmp counter accept
 
         ip saddr @trusted_sources tcp dport 22 counter accept
+
+{% if firewall_allow_http %}
         ip saddr @trusted_sources tcp dport 80 counter accept
+{% endif %}
+
+{% if firewall_allow_zabbix_agent %}
+        ip saddr {{ zabbix_server_ip }} tcp dport 10050 counter accept
+{% endif %}
     }
 
     chain forward {
